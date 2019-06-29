@@ -7,31 +7,37 @@ using Distributed
 
 function amb end
 
+# more warning
+macro amb(expr...)
+    esc(:(amb($(expr...))))
+end
+
 Cassette.@context AmbCtx
 
 struct RunState
-    f::Any
     path::Vector{Int}
     cursor::Base.RefValue{Int}
 end
 
+struct Escape end
 
-# 'Error' types:
-
-struct Escaped{T}
-    val::T
-end
-
-struct Exhausted end
-
-function ambrun(f, ctx = AmbCtx(metadata=RunState(f, [], Ref(0))))
+function ambrun(f, ctx = AmbCtx(metadata=RunState([], Ref(0))))
+    state = ctx.metadata
+    @label beginning
     try
         Cassette.overdub(ctx, f)
     catch err
-        if err isa Escaped
-            return err.val
-        elseif err isa Exhausted
-            return nothing
+        if err isa Escape
+            # no more branches down here, also we've exhausted this amb
+            # back up
+            resize!(state.path, length(state.path)-1)
+            if isempty(state.path)
+                return nothing
+            end
+            state.path[end] += 1
+            state.cursor[] = 0
+            # repeat
+            @goto beginning
         else
             rethrow(err)
         end
@@ -51,22 +57,14 @@ function Cassette.overdub(ctx::AmbCtx, ::typeof(amb), args...)
     state = ctx.metadata
     i = (state.cursor[] += 1)
     if i > length(state.path)
-        push!(state.path, 1)
+        push!(state.path, 1) # discovered a new `amb`
         @assert i == length(state.path)
     end
 
     if state.path[i] > length(args)
-        if i == 1
-            throw(Exhausted()) # came back all the way up
-        end
-        # no more branches down here, also we've exhausted this amb
-        resize!(state.path, i-1)
-        state.path[end] += 1
-        state.cursor[] = 0
-        # repeat
-        val = ambrun(state.f, ctx)
-        throw(Escaped(val))
+        throw(Escape())
     end
+
     args[state.path[i]]
 end
 

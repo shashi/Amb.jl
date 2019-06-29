@@ -1,8 +1,9 @@
 module Amb
 
-export ambrun, amb, require
+export amb, require, ambrun, ambiter
 
 using Cassette
+using Distributed
 
 function amb end
 
@@ -29,8 +30,19 @@ function ambrun(f, ctx = AmbCtx(metadata=RunState(f, [], Ref(0))))
     catch err
         if err isa Escaped
             return err.val
+        elseif err isa Exhausted
+            return nothing
         else
             rethrow(err)
+        end
+    end
+end
+
+function ambiter(f)
+    Channel() do c
+        ambrun() do
+            put!(c, f())
+            amb()
         end
     end
 end
@@ -55,7 +67,6 @@ function Cassette.overdub(ctx::AmbCtx, ::typeof(amb), args...)
         val = ambrun(state.f, ctx)
         throw(Escaped(val))
     end
-    @show state
     args[state.path[i]]
 end
 

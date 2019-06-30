@@ -1,15 +1,15 @@
 module Amb
 
-export amb, require, ambrun, ambiter
+export @amb, require, ambrun, ambiter
 
 using Cassette
 using Distributed
 
-function amb end
+function _amb end
 
 # more warning
 macro amb(expr...)
-    esc(:(amb($(expr...))))
+    :(_amb($(map(x-> esc(:(()-> $x)), expr)...)))
 end
 
 Cassette.@context AmbCtx
@@ -48,12 +48,12 @@ function ambiter(f)
     Channel() do c
         ambrun() do
             put!(c, f())
-            amb()
+            @amb
         end
     end
 end
 
-function Cassette.overdub(ctx::AmbCtx, ::typeof(amb), args...)
+function Cassette.overdub(ctx::AmbCtx, ::typeof(_amb), args...)
     state = ctx.metadata
     i = (state.cursor[] += 1)
     if i > length(state.path)
@@ -65,9 +65,9 @@ function Cassette.overdub(ctx::AmbCtx, ::typeof(amb), args...)
         throw(Escape())
     end
 
-    args[state.path[i]]
+    Cassette.overdub(ctx, args[state.path[i]])
 end
 
-require(cond) = cond ? nothing : amb()
+require(cond) = cond ? nothing : @amb()
 
 end # module

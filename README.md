@@ -1,13 +1,13 @@
 # Amb
 
-Exploratory execution with the [`amb` operator](http://community.schemewiki.org/?amb).
+Exploratory execution with the [`@amb` operator](http://community.schemewiki.org/?amb).
 
 ## Usage
 
-### `amb(options...)`
+### `@amb(options...)`
 
 ```julia
-x = amb(1,2,3)
+x = @amb 1 2 3
 
 f(x)
 ```
@@ -16,19 +16,22 @@ This piece of code says that `x` is either 1, 2, or 3. `f` can decide to admit a
 
 ### `require(condition)`
 
-Require a certain condition to be true, if not, backtrack and try the next available set of assignments to `amb` variables.
+Require a certain condition to be true, if not, backtrack and try the next available set of assignments to `@amb` variables.
 
-`require` is implemented as: `require(cond) = !cond ? amb() : nothing`
+`require` is implemented as: `require(cond) = !cond ? @amb() : nothing`
 
 **Example: Pythagorean triples**
 
 ```julia
-julia> intbetween(lo, hi) = amb(lo:hi...)
+julia> function int_between(lo, hi)
+           require(lo <= hi)
+           @amb lo int_between(lo+1, hi)
+       end
 
 julia> function a_pythagoras_triple(lo, hi)
-           i = intbetween(lo, hi)
-           j = intbetween(i, hi)
-           k = intbetween(j, hi)
+           i = int_between(lo, hi)
+           j = int_between(i, hi)
+           k = int_between(j, hi)
 
            require(i*i + j*j == k*k)
            return (i, j, k)
@@ -38,7 +41,7 @@ julia> function a_pythagoras_triple(lo, hi)
 
 ### `ambrun(f)`
 
-Runs a zero-argument function `f` in the amb-world, where the language knows that it needs to search for a set of assignments to amb variables that runs the code till the end without rejection. If no such path is found, ambrun returns nothing.
+Runs a zero-argument function `f` in the amb-world, where the language knows that it needs to search for a set of assignments to `@amb` variables that runs the code till the end without rejection. If no such path is found, ambrun returns nothing.
 
 In other words, `ambrun` computes one admissible return value of the function passed to it.
 
@@ -61,26 +64,6 @@ julia> collect(ambiter(()->a_pythagoras_triple(1, 20)))
  (9, 12, 15)
  (12, 16, 20)
 ```
-
-## Caveats
-
-- recursive `amb` construction is kinda broken.
-
-```julia
-intbetween(lo, hi) = (require(lo < hi); amb(lo, amb(lo+1, hi)))
-```
-
-does not work -- it fails at the `amb()` in the base case.
-
-```julia
-intbetween(lo, hi) = (lo == hi ? hi : amb(lo, intbetween(lo+1, hi)))
-```
-
-works, but generates 38 values (20 values and a lots of 1s).
-
-- ambrun doesn't really backtrack in the sense that it goes back to where the last amb assignment changed, instead it runs the whole function again chosing the same values as before until the last amb. It does more work than a backtracking algorithm.
-
-continuations would be a beautiful way to solve these problems.
 
 ---
 Thanks to Prof. Jerry Sussman for introducing us to `amb` in [6.945](https://groups.csail.mit.edu/mac/users/gjs/6.945/). Thanks to Jarrett Revels for writing Cassette!

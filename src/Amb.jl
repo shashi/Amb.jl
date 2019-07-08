@@ -1,9 +1,8 @@
 module Amb
 
-export @amb, require, ambrun, ambiter
+export @amb, require, ambrun, @ambrun, ambiter
 
 using Cassette
-using Distributed
 
 function _amb end
 
@@ -21,7 +20,7 @@ end
 
 struct Escape end
 
-function ambrun(f, ctx = AmbCtx(metadata=RunState([], Ref(0))))
+function ambrun(f, ctx = Cassette.disablehooks(AmbCtx(metadata=RunState([], Ref(0)))))
     state = ctx.metadata
     @label beginning
     try
@@ -42,6 +41,10 @@ function ambrun(f, ctx = AmbCtx(metadata=RunState([], Ref(0))))
             rethrow(err)
         end
     end
+end
+
+macro ambrun(expr)
+    :(ambrun(()->$(esc(expr))))
 end
 
 function ambiter(f)

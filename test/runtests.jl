@@ -2,7 +2,7 @@ using Amb
 using Test
 
 @testset "Pythagorean triples" begin
-    intbetween(lo, hi) = amb(lo:hi...)
+    intbetween(lo, hi) = (require(lo <= hi); @amb lo intbetween(lo+1, hi))
 
     function triple(lo, hi)
         i = intbetween(lo, hi)

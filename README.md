@@ -4,36 +4,36 @@ Exploratory execution with the [`@amb` operator](http://community.schemewiki.org
 
 ## Usage
 
-### `@amb(options...)`
+### `@amb(state, options...)`
 
 ```julia
-x = @amb 1 2 3
+x = @amb state 1 2 3
 
 f(x)
 ```
 
 This piece of code says that `x` is either 1, 2, or 3. `f` can decide to admit a value or not using `require`. In effect you can think of this as calling `f` with a value appropriate for `f` as decided by `f`.
 
-### `require(condition)`
+### `require(state, condition)`
 
 Require a certain condition to be true, if not, backtrack and try the next available set of assignments to `@amb` variables.
 
-`require` is implemented as: `require(cond) = !cond ? @amb() : nothing`
+`require` is implemented as: `require(state, cond) = !cond ? @amb(state) : nothing`
 
 **Example: Pythagorean triples**
 
 ```julia
-julia> function int_between(lo, hi)
-           require(lo <= hi)
-           @amb lo int_between(lo+1, hi)
+julia> function int_between(state, lo, hi)
+           require(state, lo <= hi)
+           @amb lo int_between(state, lo+1, hi)
        end
 
-julia> function a_pythagoras_triple(lo, hi)
-           i = int_between(lo, hi)
-           j = int_between(i, hi)
-           k = int_between(j, hi)
+julia> function a_pythagoras_triple(state, lo, hi)
+           i = int_between(state, lo, hi)
+           j = int_between(state, i, hi)
+           k = int_between(state, j, hi)
 
-           require(i*i + j*j == k*k)
+           require(state, i*i + j*j == k*k)
            return (i, j, k)
        end
 
@@ -46,7 +46,7 @@ Runs a zero-argument function `f` in the amb-world, where the language knows tha
 In other words, `ambrun` computes one admissible return value of the function passed to it.
 
 ```julia
-julia> ambrun(()->a_pythagoras_triple(1, 20))
+julia> ambrun((state)->a_pythagoras_triple(state, 1, 20))
 (3, 4, 5)
 ```
 
@@ -55,7 +55,7 @@ julia> ambrun(()->a_pythagoras_triple(1, 20))
 return a Channel which gives back `f()` for all admissible assignments. `collect` on gives an array of all possible answers.
 
 ```julia
-julia> collect(ambiter(()->a_pythagoras_triple(1, 20)))
+julia> collect(ambiter((state)->a_pythagoras_triple(state, 1, 20)))
 6-element Array{Any,1}:
  (3, 4, 5)
  (5, 12, 13)

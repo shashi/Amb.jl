@@ -2,16 +2,12 @@ module Amb
 
 export @amb, require, ambrun, @ambrun, ambiter
 
-using Cassette
-
 function _amb end
 
 # more warning
-macro amb(expr...)
-    :(_amb($(map(x-> esc(:(()-> $x)), expr)...)))
+macro amb(state, expr...)
+    :(_amb($(esc(state)), $(map(x-> esc(:(($state) -> $x)), expr)...)))
 end
-
-Cassette.@context AmbCtx
 
 struct RunState
     path::Vector{Int}
@@ -20,11 +16,11 @@ end
 
 struct Escape end
 
-function ambrun(f, ctx = Cassette.disablehooks(AmbCtx(metadata=RunState([], Ref(0)))))
-    state = ctx.metadata
+ambrun(f) = ambrun(RunState([], Ref(0)), f)
+function ambrun(state, f)
     @label beginning
     try
-        Cassette.overdub(ctx, f)
+        return f(state)
     catch err
         if err isa Escape
             # no more branches down here, also we've exhausted this amb
@@ -43,24 +39,25 @@ function ambrun(f, ctx = Cassette.disablehooks(AmbCtx(metadata=RunState([], Ref(
     end
 end
 
-macro ambrun(expr)
-    :(ambrun(()->$(esc(expr))))
+macro ambrun(st, expr)
+    @assert st isa Symbol
+    :(ambrun(esc(:(($st)->$(expr)))), $(esc(st)))
 end
 
-function ambiter(f)
+ambiter(f) = ambiter(RunState([], Ref(0)), f)
+function ambiter(state, f)
     Channel() do c
-        ambrun() do
-            put!(c, f())
-            @amb
-        end
+        ambrun(state, state-> begin
+            put!(c, f(state))
+            @amb state
+        end)
     end
 end
 
-function Cassette.overdub(ctx::AmbCtx, ::typeof(_amb), args...)
-    state = ctx.metadata
+function _amb(state, args...)
     i = (state.cursor[] += 1)
     if i > length(state.path)
-        push!(state.path, 1) # discovered a new `amb`
+        push!(state.path, 1) # discovered a new @amb
         @assert i == length(state.path)
     end
 
@@ -68,9 +65,9 @@ function Cassette.overdub(ctx::AmbCtx, ::typeof(_amb), args...)
         throw(Escape())
     end
 
-    Cassette.overdub(ctx, args[state.path[i]])
+    args[state.path[i]](state)
 end
 
-require(cond) = cond ? nothing : @amb()
+require(state, cond) = cond ? nothing : @amb(state)
 
 end # module

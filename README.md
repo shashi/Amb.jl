@@ -1,6 +1,6 @@
 # Amb
 
-Exploratory execution with the [`@amb` operator](http://community.schemewiki.org/?amb).
+Nondeterminism operator. "[Amb](http://community.schemewiki.org/?amb)" as in "it's *amb*iguous which value this should be at this point, but it's one of these."
 
 ## Usage
 
@@ -8,15 +8,12 @@ Exploratory execution with the [`@amb` operator](http://community.schemewiki.org
 
 ```julia
 x = @amb state 1 2 3
-
-f(x)
 ```
-
-This piece of code says that `x` is either 1, 2, or 3. `f` can decide to admit a value or not using `require`. In effect you can think of this as calling `f` with a value appropriate for `f` as decided by `f`.
+`x` is an Integer, specifically either 1, 2, or 3. Which one depends on what the program does next! `require(state, isodd(x))` will make it be either `1`, or `3`.
 
 ### `require(state, condition)`
 
-Require a certain condition to be true, if not, backtrack and try the next available set of assignments to `@amb` variables.
+Require a certain condition to be true, if not, backtrack and try the next available set of assignments to `@amb` variables seen so far.
 
 `require` is implemented as: `require(state, cond) = !cond ? @amb(state) : nothing`
 

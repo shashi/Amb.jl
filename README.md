@@ -6,6 +6,7 @@ Nondeterminism operator. "[Amb](http://community.schemewiki.org/?amb)" as in "it
 
 ### `@amb(state, options...)`
 
+A nondeterminstic choice from the options.
 ```julia
 x = @amb state 1 2 3
 ```
@@ -22,7 +23,7 @@ Require a certain condition to be true, if not, backtrack and try the next avail
 ```julia
 julia> function int_between(state, lo, hi)
            require(state, lo <= hi)
-           @amb lo int_between(state, lo+1, hi)
+           @amb state lo int_between(state, lo+1, hi)
        end
 
 julia> function a_pythagoras_triple(state, lo, hi)
